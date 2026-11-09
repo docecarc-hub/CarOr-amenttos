@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stoqcar - Pro Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+<div class="app-layout">
+    <!-- BARRA LATERAL (SIDEBAR) -->
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-logo"><i class="fa-solid fa-wrench"></i></div>
+            <div class="brand-info">
+                <span class="brand-name" id="label_nome_oficina_side">Car Doce Car</span>
+                <span class="brand-sub">Stoqcar Management</span>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <button class="nav-item active" onclick="trocarAba('orcamento')">
+                <i class="fa-solid fa-calculator"></i> <span>Orçamento</span>
+            </button>
+            <button class="nav-item" onclick="trocarAba('historico')">
+                <i class="fa-solid fa-clock-rotate-left"></i> <span>Histórico</span>
+            </button>
+            <button class="nav-item" onclick="trocarAba('filtros')">
+                <i class="fa-solid fa-boxes-stacked"></i> <span>Estoque Filtros</span>
+            </button>
+            <button class="nav-item" onclick="trocarAba('cadastro')">
+                <i class="fa-solid fa-square-plus"></i> <span>Cadastros</span>
+            </button>
+            <button class="nav-item" onclick="trocarAba('gerenciar')">
+                <i class="fa-solid fa-database"></i> <span>Gerenciar Banco</span>
+            </button>
+            <button class="nav-item" onclick="trocarAba('config')">
+                <i class="fa-solid fa-gear"></i> <span>Configurações</span>
+            </button>
+            <button class="nav-item ia-item" onclick="trocarAba('ia')">
+                <i class="fa-solid fa-robot"></i> <span>IA Stoqcar Pro</span>
+            </button>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="status-badge"><i class="fa-solid fa-circle"></i> SQLite Ativo</div>
+        </div>
+    </aside>
+
+    <!-- CONTEÚDO PRINCIPAL (MAIN CONTENT) -->
+    <main class="main-content">
+        <header class="top-header">
+            <h1 id="titulo_topo_oficina">Car Doce Car - Gestão de Oficina</h1>
+            <div class="header-actions">
+                <span class="date-badge" id="current_date_badge"></span>
+            </div>
+        </header>
+
+        <div class="content-body">
+
+            <!-- 1. ABA ORÇAMENTO -->
+            <div id="aba-orcamento" class="tab-content active">
+
+            <!-- PAINEL DE CONSULTA DE PLACA E FIPE DIRETA -->
+            <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; border-left: 4px solid #2563eb;">
+                <h3 style="margin-top: 0; color: #1e293b; font-size: 16px;">🔍 Consulta Rápida de Placa & FIPE (Oficina)</h3>
+                <p style="color: #64748b; font-size: 13px; margin-bottom: 12px;">Digite a placa do veículo para o sistema buscar os dados cadastrais oficiais e valores FIPE instantaneamente:</p>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <input type="text" id="input_consulta_placa" placeholder="Ex: ABC1D23 ou ABC-1234" style="flex: 1; min-width: 200px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; text-transform: uppercase; font-weight: bold;" maxlength="8">
+                    <button class="btn" style="background: #2563eb; padding: 10px 20px;" onclick="consultarPlacaProfissional()">Consultar Placa</button>
+                </div>
+                <div id="resultadoConsultaPlacaBox" style="display: none;"></div>
+            </div>
+
+                <div class="page-title">
+                    <h2>Criar Orçamento de Serviço</h2>
+                    <p>Selecione o veículo para carregar automaticamente o óleo e filtros recomendados.</p>
+                </div>
+
+                <div class="card">
+                    <div class="form-group">
+                        <label for="veiculo"><i class="fa-solid fa-car"></i> Veículo:</label>
+                        <select id="veiculo" onchange="aoSelecionarVeiculo()">
+                            <option value="">A carregar veículos...</option>
+                        </select>
+                    </div>
+
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="chk_servico_motor" checked onchange="toggleServico('motor')">
+                        <label for="chk_servico_motor">Troca de Óleo do Motor</label>
+                    </div>
+
+                    <div id="box_motor" class="service-box">
+                        <div class="row">
+                            <div class="col">
+                                <div class="form-group">
+                                    <label>Óleo de Motor:</label>
+                                    <select id="select_oleo_motor" onchange="aoSelecionarOleoMotor()"></select>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="form-group">
+                                    <label>Preço por Litro (R$):</label>
+                                    <input type="number" id="preco_litro_motor" step="0.01">
+                                </div>
+                            </div>
+                        </div>
+                        <p class="info-text"><b>Capacidade do motor:</b> <span id="info_litros_motor">-</span></p>
+
+                        <h4 class="sub-heading"><i class="fa-solid fa-filter"></i> Filtros & Arruela Ideais:</h4>
+                        
+                        <div class="row">
+                            <div class="col">
+                                <div class="form-group">
+                                    <label>Filtro de Óleo:</label>
+                                    <select id="select_filtro_oleo"></select>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="form-group">
+                                    <label>Filtro de Ar:</label>
+                                    <select id="select_filtro_ar"></select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col">
+                                <div class="form-group">
+                                    <label>Filtro Combustível:</label>
+                                    <select id="select_filtro_combustivel"></select>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="form-group">
+                                    <label>Filtro Cabine (Ar-Cond.):</label>
+                                    <select id="select_filtro_cabine"></select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Arruela de Vedação:</label>
+                            <select id="select_arruela"></select>
+                        </div>
+                    </div>
+
+                    <div class="checkbox-group mt-20">
+                        <input type="checkbox" id="chk_servico_cambio" onchange="toggleServico('cambio')">
+                        <label for="chk_servico_cambio">Troca de Fluido de Câmbio (Automático/Manual)</label>
+                    </div>
+
+                    <div id="box_cambio" class="service-box" style="display:none;">
+                        <div class="row">
+                            <div class="col">
+                                <div class="form-group">
+                                    <label>Tipo de Câmbio:</label>
+                                    <select id="tipo_cambio_select" onchange="atualizarLitrosCambio()">
+                                        <option value="automatico">Automático / CVT</option>
+                                        <option value="manual">Manual</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="form-group">
+                                    <label>Fluido de Câmbio:</label>
+                                    <select id="select_oleo_cambio" onchange="aoSelecionarOleoCambio()"></select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col">
+                                <div class="form-group">
+                                    <label>Preço/Litro Câmbio (R$):</label>
+                                    <input type="number" id="preco_litro_cambio" step="0.01">
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="form-group">
+                                    <label>Mão de Obra Câmbio (R$):</label>
+                                    <input type="number" id="valor_mao_obra_cambio" value="150.00" step="0.01">
+                                </div>
+                            </div>
+                        </div>
+                        <p class="info-text"><b>Capacidade do câmbio:</b> <span id="info_litros_cambio">-</span></p>
+                    </div>
+
+                    <button class="btn btn-primary btn-block mt-20" onclick="calcularOrcamento()">
+                        <i class="fa-solid fa-calculator"></i> Calcular Orçamento
+                    </button>
+                </div>
+
+                <div id="blocoResultado" class="card result-card" style="display:none;">
+                    <div id="textoResumo"></div>
+                    <button class="btn btn-whatsapp mt-15" onclick="enviarWhatsApp()">
+                        <i class="fa-brands fa-whatsapp"></i> Enviar no WhatsApp
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. ABA HISTÓRICO -->
+            <div id="aba-historico" class="tab-content">
+                <div class="page-title">
+                    <h2>Histórico de Orçamentos</h2>
+                    <p>Consulte todos os orçamentos emitidos e gravados no banco SQLite.</p>
+                </div>
+                <div class="card">
+                    <div id="listaHistoricoContainer">
+                        <p>A carregar histórico...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. ABA ESTOQUE DE FILTROS -->
+            <div id="aba-filtros" class="tab-content">
+                <div class="page-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px;">
+                    <div>
+                        <h2>📦 Estoque Avançado de Filtros</h2>
+                        <p>Gerencie, pesquise e importe tabelas e planilhas de filtros com inteligência de categoria automática.</p>
+                    </div>
+                </div>
+
+                <!-- CARD DE IMPORTAÇÃO DE PLANILHA ULTRA MODERNO -->
+                <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 14px; padding: 22px; color: white; box-shadow: 0 10px 25px rgba(0,0,0,0.15); margin-bottom: 25px; border: 1px solid #334155;">
+                    <h3 style="margin-top:0; font-size:16px; color:#38bdf8; display:flex; align-items:center; gap:8px;">
+                        <i class="fa-solid fa-file-excel" style="font-size: 20px;"></i> Importador Inteligente de Planilha (Excel / CSV)
+                    </h3>
+                    <p style="font-size:13px; color:#94a3b8; margin-bottom:15px;">
+                        Selecione um ficheiro Excel (.xlsx/.xls) ou CSV contendo códigos, aplicações e preços. O Stoqcar identifica e categoriza automaticamente o óleo, ar, combustível e cabine!
+                    </p>
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+                        <input type="file" id="input_arquivo_planilha" accept=".xlsx, .xls, .csv, .txt" style="background:#334155; color:#f8fafc; padding:10px; border-radius:8px; border:1px solid #475569; flex:1; min-width:240px; cursor:pointer; font-size:13px;">
+                        <button class="btn" onclick="importarPlanilhaEstoque()" style="background:#10b981; color:white; font-weight:bold; padding:12px 24px; border-radius:8px; border:none; cursor:pointer; box-shadow:0 4px 12px rgba(16,185,129,0.3); transition:all 0.2s;">
+                            🚀 Importar e Sincronizar Agora
+                        </button>
+                    </div>
+                </div>
+
+                <!-- PESQUISA E TABELA -->
+                <div class="card" style="border-top: 4px solid #2563eb;">
+                    <div class="form-group">
+                        <label style="font-weight:bold; color:#1e293b;"><i class="fa-solid fa-magnifying-glass"></i> Pesquisa Rápida no Estoque:</label>
+                        <input type="text" id="inputBuscaFiltro" placeholder="Digite o código (Ex: C1941) ou aplicação (Ex: CELTA, COROLLA)..." oninput="filtrarTabelaFiltrosEstoque()" style="padding:12px; font-size:14px; border-radius:8px; border:1px solid #cbd5e1;">
+                    </div>
+                    <div id="tabelaFiltrosEstoqueContainer" style="margin-top: 15px;">
+                        <p>A carregar estoque...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. ABA CADASTROS -->
+            <div id="aba-cadastro" class="tab-content">
+                <div class="page-title">
+                    <h2>Cadastros do Sistema</h2>
+                </div>
+
+                <div class="sub-nav-tabs">
+                    <button class="sub-nav-btn active" onclick="trocarSubAba('sub-carro')">Veículos</button>
+                    <button class="sub-nav-btn" onclick="trocarSubAba('sub-oleo')">Óleos</button>
+                    <button class="sub-nav-btn" onclick="trocarSubAba('sub-filtro')">Filtros</button>
+                    <button class="sub-nav-btn" onclick="trocarSubAba('sub-arruela')">Arruelas</button>
+                </div>
+
+                <div id="sub-carro" class="sub-tab-content card" style="display:block;">
+                    <h3 id="tituloFormCarro">Cadastrar Veículo & Padrões Ideais</h3>
+                    <form id="formNovoCarro" onsubmit="salvarNovoVeiculo(event)">
+                        <input type="hidden" id="edit_veiculo_id">
+                        <div class="form-group"><label>Modelo do Veículo:</label><input type="text" id="cad_modelo" placeholder="Ex: Chery Tiggo 2" required></div>
+                        <div class="row">
+                            <div class="col"><div class="form-group"><label>Litros Motor:</label><input type="number" step="0.1" id="cad_litros_motor" value="3.0" required></div></div>
+                            <div class="col"><div class="form-group"><label>Litros Câmbio Aut.:</label><input type="number" step="0.1" id="cad_litros_aut" value="6.0"></div></div>
+                            <div class="col"><div class="form-group"><label>Litros Câmbio Man.:</label><input type="number" step="0.1" id="cad_litros_man" value="2.0"></div></div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col"><div class="form-group"><label>Óleo Motor Ideal:</label><select id="cad_oleo_motor_id"><option value="">Nenhum</option></select></div></div>
+                            <div class="col"><div class="form-group"><label>Arruela Ideal:</label><select id="cad_arruela_id"><option value="">Nenhuma</option></select></div></div>
+                        </div>
+
+                        <h4 class="sub-heading">Filtros Ideais Padrão:</h4>
+                        <div class="row">
+                            <div class="col"><div class="form-group"><label>Filtro de Óleo:</label><select id="cad_filtro_oleo_id"><option value="">Nenhum</option></select></div></div>
+                            <div class="col"><div class="form-group"><label>Filtro de Ar:</label><select id="cad_filtro_ar_id"><option value="">Nenhum</option></select></div></div>
+                        </div>
+                        <div class="row">
+                            <div class="col"><div class="form-group"><label>Filtro Combustível:</label><select id="cad_filtro_comb_id"><option value="">Nenhum</option></select></div></div>
+                            <div class="col"><div class="form-group"><label>Filtro Cabine:</label><select id="cad_filtro_cab_id"><option value="">Nenhum</option></select></div></div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" id="btnSalvarCarro">Salvar Veículo</button>
+                    </form>
+                </div>
+
+                <div id="sub-oleo" class="sub-tab-content card">
+                    <h3 id="tituloFormOleo">Cadastrar Óleo</h3>
+                    <form id="formNovoOleo" onsubmit="salvarNovoOleo(event)">
+                        <input type="hidden" id="edit_oleo_id">
+                        <div class="form-group"><label>Nome / Viscosidade:</label><input type="text" id="novo_oleo_nome" placeholder="Ex: Motul ATF Transmissão" required></div>
+                        <div class="row">
+                            <div class="col"><div class="form-group"><label>Preço/Litro (R$):</label><input type="number" step="0.01" id="novo_oleo_preco" required></div></div>
+                            <div class="col"><div class="form-group"><label>Aplicação:</label><select id="novo_oleo_tipo"><option value="motor">Motor</option><option value="cambio">Câmbio</option></select></div></div>
+                        </div>
+                        <button type="submit" class="btn btn-primary" id="btnSalvarOleo">Cadastrar Óleo</button>
+                    </form>
+                </div>
+
+                <div id="sub-filtro" class="sub-tab-content card">
+                    <h3 id="tituloFormFiltro">Cadastrar Filtro</h3>
+                    <form id="formNovoFiltro" onsubmit="salvarNovoFiltro(event)">
+                        <input type="hidden" id="edit_filtro_id">
+                        <div class="form-group"><label>Código do Filtro:</label><input type="text" id="cad_f_codigo" placeholder="Ex: C1941" required></div>
+                        <div class="form-group"><label>Aplicação:</label><input type="text" id="cad_f_aplicacao" placeholder="Ex: CELTA / CORSA" required></div>
+                        <div class="form-group">
+                            <label>Categoria:</label>
+                            <select id="cad_f_categoria" required>
+                                <option value="Filtro de Óleo">Filtro de Óleo</option>
+                                <option value="Filtro de Ar do Motor">Filtro de Ar do Motor</option>
+                                <option value="Filtro de Combustível">Filtro de Combustível</option>
+                                <option value="Filtro de Ar-Condicionado (Cabine)">Filtro de Ar-Condicionado (Cabine)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Preço de Venda (R$):</label>
+                            <input type="number" step="0.01" id="cad_f_preco" placeholder="35.00" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary" id="btnSalvarFiltro">Cadastrar Filtro</button>
+                    </form>
+                </div>
+
+                <div id="sub-arruela" class="sub-tab-content card">
+                    <h3 id="tituloFormArruela">Cadastrar Arruela</h3>
+                    <form id="formNovaArruela" onsubmit="salvarNovaArruela(event)">
+                        <input type="hidden" id="edit_arruela_id">
+                        <div class="form-group"><label>Nome / Medida:</label><input type="text" id="nova_arruela_nome" placeholder="Ex: Arruela Vedação" required></div>
+                        <div class="form-group"><label>Preço (R$):</label><input type="number" step="0.01" id="nova_arruela_preco" required></div>
+                        <button type="submit" class="btn btn-primary" id="btnSalvarArruela">Cadastrar Arruela</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 5. ABA GERENCIAR -->
+            <div id="aba-gerenciar" class="tab-content">
+                <div class="page-title">
+                    <h2>Gerenciar Registos do Banco</h2>
+                </div>
+                <div class="sub-nav-tabs">
+                    <button class="sub-nav-btn active" onclick="trocarSubAbaGerenciar('ger-carro')">Veículos</button>
+                    <button class="sub-nav-btn" onclick="trocarSubAbaGerenciar('ger-oleo')">Óleos</button>
+                    <button class="sub-nav-btn" onclick="trocarSubAbaGerenciar('ger-arruela')">Arruelas</button>
+                </div>
+                <div id="ger-carro" class="sub-tab-content-ger card" style="display:block;"><div id="listaVeiculosContainer"></div></div>
+                <div id="ger-oleo" class="sub-tab-content-ger card" style="display:none;"><div id="listaOleosContainer"></div></div>
+                <div id="ger-arruela" class="sub-tab-content-ger card" style="display:none;"><div id="listaArruelasContainer"></div></div>
+            </div>
+
+            <!-- 6. ABA CONFIGURAÇÕES -->
+            <div id="aba-config" class="tab-content">
+            <h2 style="color: #1e293b; margin-top: 0; font-size: 20px;">⚙️ Central de Configurações Pro</h2>
+            <p style="color: #64748b; font-size: 14px; margin-bottom: 20px;">Personalize todos os dados cadastrais da sua oficina, parâmetros financeiros, dados de pagamento PIX e gestão completa do banco de dados.</p>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                <!-- CARD 1: DADOS DA OFICINA -->
+                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.03);">
+                    <h3 style="margin-top:0; color:#2563eb; font-size:16px;">🏢 Perfil da Oficina</h3>
+                    <div class="form-group">
+                        <label style="font-weight:600; font-size:13px;">Nome Fantasia da Oficina:</label>
+                        <input type="text" id="cfg_nome_oficina" value="Car Doce Car" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; margin-top:4px;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-weight:600; font-size:13px;">CNPJ / CPF Comercial:</label>
+                        <input type="text" id="cfg_cnpj" placeholder="Ex: 00.000.000/0001-00" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; margin-top:4px;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-weight:600; font-size:13px;">Telefone / WhatsApp da Oficina:</label>
+                        <input type="text" id="cfg_telefone" placeholder="Ex: (31) 98765-4321" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; margin-top:4px;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-weight:600; font-size:13px;">Endereço Completo / Bairro:</label>
+                        <input type="text" id="cfg_endereco" value="Oficina Bethânia" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; margin-top:4px;">
+                    </div>
+                </div>
+
+                <!-- CARD 2: PAGAMENTO PIX & VALORES PADRÃO -->
+                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.03);">
+                    <h3 style="margin-top:0; color:#10b981; font-size:16px;">💳 PIX & Valores Padrão</h3>
+                    <div class="form-group">
+                        <label style="font-weight:600; font-size:13px;">Chave PIX (Para Orçamentos):</label>
+                        <input type="text" id="cfg_chave_pix" placeholder="Ex: CNPJ, E-mail ou Telefone" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; margin-top:4px;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-weight:600; font-size:13px;">Mão de Obra Padrão (Motor R$):</label>
+                        <input type="number" id="cfg_mo_motor" value="40.00" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; margin-top:4px;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-weight:600; font-size:13px;">Mão de Obra Padrão (Câmbio R$):</label>
+                        <input type="number" id="cfg_mo_cambio" value="150.00" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; margin-top:4px;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-weight:600; font-size:13px;">Rodapé Personalizado no WhatsApp:</label>
+                        <input type="text" id="cfg_rodape" value="Agende seu horário na Oficina Bethânia! 🛠️" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; margin-top:4px;">
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top:20px; text-align:right;">
+                <button class="btn" onclick="salvarConfiguracoesPro()" style="background:#2563eb; padding:12px 28px; font-size:14px; font-weight:bold; border-radius:8px; color:white; cursor:pointer;">💾 Salvar Todas as Configurações</button>
+            </div>
+
+            <hr style="margin: 30px 0; border: 0; border-top: 1px solid #e2e8f0;">
+
+            <!-- CARD 3: BACKUP E BANCO DE DADOS -->
+            <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 20px;">
+                <h3 style="margin-top:0; color:#475569; font-size:16px;">💾 Segurança & Gestão de Dados (Backup & Restore)</h3>
+                <p style="color:#64748b; font-size:13px;">Exporte e faça backup de todo o seu banco de dados local contendo estoque de filtros, veículos cadastrados e histórico de orçamentos.</p>
+                <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:14px;">
+                    <button class="btn btn-secundario" onclick="exportarBackupBanco()" style="padding:10px 18px; font-weight:bold;">📥 Baixar Backup Completo (JSON)</button>
+                    <label class="btn" style="background:#0284c7; color:white; padding:10px 18px; font-weight:bold; cursor:pointer;">
+                        📤 Restaurar Backup (JSON)
+                        <input type="file" id="input_restaurar_backup" accept=".json" onchange="restaurarBackupBanco(event)" style="display:none;">
+                    </label>
+                    <button class="btn btn-perigo" onclick="limparBancoDados()" style="padding:10px 18px; font-weight:bold; margin-left:auto;">🗑️ Resetar Sistema de Fábrica</button>
+                </div>
+            </div>
+        </div>
+                </div>
+            </div>
+
+                        <!-- 7. ABA IA STOQCAR PRO (CENTRALIZADA E PERFEITA) -->
+            <div id="aba-ia" class="tab-content">
+                <div class="page-title" style="text-align: center; margin-bottom: 25px;">
+                    <h2><i class="fa-solid fa-robot" style="color:#2563eb;"></i> Assistente IA Stoqcar Pro</h2>
+                    <p style="color: #64748b; font-size: 14px;">Central inteligente para conversão de agendamentos de WhatsApp, consulta de estoque e automação de mensagens.</p>
+                </div>
+
+                <div class="ia-grid-central">
+                    <!-- COLUNA ESQUERDA: CONTROLES DA IA -->
+                    <div class="card" style="box-shadow: 0 10px 25px rgba(0,0,0,0.06); border-top: 4px solid #2563eb; background: #ffffff;">
+                        <h3 style="margin-top:0; color:#1e293b; font-size:16px; margin-bottom:15px; display:flex; align-items:center; gap:8px;">
+                            <i class="fa-solid fa-sliders" style="color:#2563eb;"></i> Comandos e Modos da IA
+                        </h3>
+                        
+                        <div class="form-group">
+                            <label style="font-weight:600; color:#475569; font-size:13px;">Selecione a Ação da IA:</label>
+                            <select id="ia_modo" onchange="mudarModoIA()" style="padding:12px; border-radius:8px; border:1px solid #cbd5e1; font-size:14px; width:100%; background:#f8fafc; font-weight:bold; color:#1e293b;">
+                                <option value="agendamento_inteligente">🚀 Processar Agendamento de WhatsApp (Leide/Tiggo, etc.)</option>
+                                <option value="consultar_placafipe">🌐🔍 Consultar Placa no PlacaFipe.com.br</option>
+                                <option value="orcamento_chat">💬 Ler Lembrete / Orçamento em Texto</option>
+                                <option value="consulta_estoque">🔍 Consultar Estoque no Banco SQL</option>
+                                <option value="mensagem_cobranca">💰 Gerar Mensagem Humanizada de Cobrança</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" style="margin-top:15px;">
+                            <label id="label_ia_input" style="font-weight:600; color:#475569; font-size:13px;">Cole o lembrete de agendamento ou mensagem do cliente:</label>
+                            <textarea id="ia_prompt_input" rows="7" placeholder="📌 LEMBRETE DE AGENDAMENTO&#10;👤 Cliente: Leide&#10;📞 Telefone: 31 93122067&#10;🚗 Veículo: Chery Tiggo 2&#10;🔧 Serviço: Troca de Óleo da Transmissão Automatica&#10;📅 Data: 03/11/2026&#10;⏰ Horário: 09 hora da manhã" style="padding:12px; border-radius:8px; border:1px solid #cbd5e1; font-family:monospace; font-size:13px; width:100%; box-sizing:border-box; line-height:1.5;"></textarea>
+                        </div>
+
+                        <button class="btn" onclick="executarIAPro()" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color:white; width:100%; padding:14px; font-weight:bold; border-radius:8px; border:none; cursor:pointer; font-size:15px; box-shadow:0 4px 12px rgba(37,99,235,0.3); margin-top:10px; transition:all 0.2s;">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Processar com Inteligência Pro
+                        </button>
+                    </div>
+
+                    <!-- COLUNA DIREITA: RESULTADO DA IA -->
+                    <div class="card" style="box-shadow: 0 10px 25px rgba(0,0,0,0.06); border-top: 4px solid #10b981; min-height: 440px; display: flex; flex-direction: column; background: #ffffff;">
+                        <h3 style="margin-top:0; color:#1e293b; font-size:16px; margin-bottom:15px; display:flex; align-items:center; gap:8px;">
+                            <i class="fa-solid fa-rectangle-list" style="color:#10b981;"></i> Resultado & Resposta Pronta
+                        </h3>
+                        
+                        <div id="blocoRespostaIA" style="display:flex; flex-direction:column; flex:1;">
+                            <div id="textoRespostaIA" style="background:#0f172a; color:#38bdf8; padding:18px; border-radius:10px; font-family:monospace; font-size:13px; white-space:pre-wrap; line-height:1.6; flex:1; border:1px solid #334155; overflow-y:auto; max-height:300px;">
+                                [Aguardando comando da IA... Selecione a ação ao lado e clique em processar.]
+                            </div>
+                            <div id="botoesAcaoIA" style="margin-top:15px; display:flex; gap:10px; flex-wrap:wrap;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>        </div>
+    </main>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
